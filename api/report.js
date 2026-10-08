@@ -55,6 +55,16 @@ function verifyInitData(initData, botToken) {
 }
 
 // ====================== Сборка текста отчёта ======================
+function toAmount(value) {
+  const amount = Number(String(value ?? '').replace(',', '.'));
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function formatAmount(value) {
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  return String(rounded);
+}
+
 function buildReportText(data) {
   const esc = (v) => (v !== undefined && v !== null ? String(v) : '');
   const type = data.type || 'evening';
@@ -65,8 +75,20 @@ function buildReportText(data) {
     '',
     '💰 Финансовый остаток',
     `🧮 1С: ${esc(data.onec || 0)} руб.`,
-    `💵 Итог кассы: ${esc(data.cash || 0)} руб.`,
-    `📒 Недостачи: ${esc(data.notebook_shortage || 0)} руб.`
+    `💵 Касса: ${esc(data.cash || 0)} руб.`,
+    `📒 Недостача по тетради: ${esc(data.notebook_shortage || 0)} руб.`
+  ].join('\n');
+}
+
+function buildReportSummary(data) {
+  const onec = toAmount(data.onec);
+  const cash = toAmount(data.cash);
+  const shortage = toAmount(data.notebook_shortage);
+
+  return [
+    '📌 <b>ИТОГ:</b>',
+    `🧮 1С: ${formatAmount(onec)} руб.`,
+    `💵 Касса + недостача: ${formatAmount(cash + shortage)} руб.`
   ].join('\n');
 }
 
@@ -118,17 +140,15 @@ module.exports = async function handler(req, res) {
     } catch (e) {}
 
     const data = body.data || {};
-    const reportText = body.report_text;
-    const hasStructuredReport = ['onec', 'cash', 'notebook_shortage'].every(
-      (key) => data[key] !== undefined && data[key] !== null
-    );
+    const reportText = body.report_text || buildReportText(data);
 
-    let finalText;
-    if (hasStructuredReport || !reportText) {
-      finalText = `<b>Отправил:</b> ${userName}\n\n${buildReportText(data)}`;
-    } else {
-      finalText = `<b>Отправил:</b> ${userName}\n\n${reportText}`;
-    }
+    const finalText = [
+      `<b>Отправил:</b> ${userName}`,
+      '',
+      reportText,
+      '',
+      buildReportSummary(data)
+    ].join('\n');
 
     // Параметры отправки
     const sendOptions = {
