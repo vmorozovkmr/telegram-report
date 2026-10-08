@@ -65,8 +65,8 @@ function buildReportText(data) {
     '',
     '💰 Финансовый остаток',
     `🧮 1С: ${esc(data.onec || 0)} руб.`,
-    `💵 Касса: ${esc(data.cash || 0)} руб.`,
-    `📒 Недостача по тетради: ${esc(data.notebook_shortage || 0)} руб.`
+    `💵 Итог кассы: ${esc(data.cash || 0)} руб.`,
+    `📒 Недостачи: ${esc(data.notebook_shortage || 0)} руб.`
   ].join('\n');
 }
 
@@ -119,12 +119,15 @@ module.exports = async function handler(req, res) {
 
     const data = body.data || {};
     const reportText = body.report_text;
+    const hasStructuredReport = ['onec', 'cash', 'notebook_shortage'].every(
+      (key) => data[key] !== undefined && data[key] !== null
+    );
 
     let finalText;
-    if (reportText) {
-      finalText = `<b>Отправил:</b> ${userName}\n\n${reportText}`;
+    if (hasStructuredReport || !reportText) {
+      finalText = `<b>Отправил:</b> ${userName}\n\n${buildReportText(data)}`;
     } else {
-      finalText = buildReportText(data);
+      finalText = `<b>Отправил:</b> ${userName}\n\n${reportText}`;
     }
 
     // Параметры отправки
