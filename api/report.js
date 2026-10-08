@@ -55,38 +55,41 @@ function verifyInitData(initData, botToken) {
 }
 
 // ====================== Сборка текста отчёта ======================
-function buildReportText(data, userName) {
+function toAmount(value) {
+  const amount = Number(String(value ?? '').replace(',', '.'));
+  return Number.isFinite(amount) ? amount : 0;
+}
+
+function formatAmount(value) {
+  const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+  return String(rounded);
+}
+
+function buildReportText(data) {
   const esc = (v) => (v !== undefined && v !== null ? String(v) : '');
-
   const type = data.type || 'evening';
+  const reportTitle = type === 'evening' ? 'ВЕЧЕРНИЙ' : 'УТРЕННИЙ';
 
-  if (type === 'morning') {
-    return (
-      `📊 <b>УТРЕННИЙ ОТЧЕТ</b>\n\n` +
-      `💰 <b>Финансовый остаток:</b>\n` +
-      `• 💵 В кассе денег: ${esc(data.cash || 0)} руб.\n` +
-      `• 🖥 В 1С денег: ${esc(data.onec || 0)} руб.\n` +
-      `• 💳 На карте денег: ${esc(data.card || 0)} руб.\n\n` +
-      `👤 <b>Отчет сдал:</b> ${esc(userName)}`
-    );
-  }
+  return [
+    `📊 ${reportTitle} ОТЧЁТ`,
+    '',
+    '💰 Финансовый остаток',
+    `🧮 1С: ${esc(data.onec || 0)} руб.`,
+    `💵 Касса: ${esc(data.cash || 0)} руб.`,
+    `📒 Недостача по тетради: ${esc(data.notebook_shortage || 0)} руб.`
+  ].join('\n');
+}
 
-  return (
-    `📊 <b>ВЕЧЕРНИЙ ОТЧЕТ</b>\n\n` +
-    `📂 <b>Документооборот и учет:</b>\n` +
-    `• Кассовая книга: ${esc(data.kassa || '🔴 Нет')}\n` +
-    `• Отчет ИИ: ${esc(data.ii || '🔴 Нет')}\n` +
-    `• Реестр: ${esc(data.reestr || '🔴 Нет')}\n\n` +
-    `📱 <b>Маркетинг и соцсети:</b>\n` +
-    `• 📹 Размещено в ВК: ${esc(data.vk || 0)} постов\n` +
-    `• ✈️🔖 Размещено в ТГ: ${esc(data.tg || 0)} постов\n` +
-    `• 📺 Размещено в Макс: ${esc(data.max || 0)} постов\n\n` +
-    `💰 <b>Финансовый остаток:</b>\n` +
-    `• 💵 В кассе денег: ${esc(data.cash || 0)} руб.\n` +
-    `• 🖥 В 1С денег: ${esc(data.onec || 0)} руб.\n` +
-    `• 💳 На карте денег: ${esc(data.card || 0)} руб.\n\n` +
-    `👤 <b>Отчет сдал:</b> ${esc(userName)}`
-  );
+function buildReportSummary(data) {
+  const onec = toAmount(data.onec);
+  const cash = toAmount(data.cash);
+  const shortage = toAmount(data.notebook_shortage);
+
+  return [
+    '📌 <b>ИТОГ:</b>',
+    `🧮 1С: ${formatAmount(onec)} руб.`,
+    `💵 Касса: ${formatAmount(cash + shortage)} руб.`
+  ].join('\n');
 }
 
 // ====================== Главный обработчик ======================
@@ -137,14 +140,15 @@ module.exports = async function handler(req, res) {
     } catch (e) {}
 
     const data = body.data || {};
-    const reportText = body.report_text;
+    const reportText = body.report_text || buildReportText(data);
 
-    let finalText;
-    if (reportText) {
-      finalText = `<b>Отправил:</b> ${userName}\n\n${reportText}`;
-    } else {
-      finalText = buildReportText(data, userName);
-    }
+    const finalText = [
+      `<b>Отправил:</b> ${userName}`,
+      '',
+      reportText,
+      '',
+      buildReportSummary(data)
+    ].join('\n');
 
     // Параметры отправки
     const sendOptions = {
