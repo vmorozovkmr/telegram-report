@@ -88,7 +88,7 @@ function buildReportSummary(data) {
   return [
     '📌 <b>ИТОГ:</b>',
     `🧮 1С: ${formatAmount(onec)} руб.`,
-    `💵 Касса + недостача: ${formatAmount(cash + shortage)} руб.`
+    `💵 Касса: ${formatAmount(cash + shortage)} руб.`
   ].join('\n');
 }
 
